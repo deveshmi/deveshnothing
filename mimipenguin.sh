@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Author: Hunter Gregal
+# Author: Hunter Gregal - Forked By Devesh
 # Github: /huntergregal Twitter: /huntergregal Site: huntergregal.com
 # Dumps cleartext credentials from memory
 
