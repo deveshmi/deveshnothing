@@ -8,7 +8,7 @@
 if [[ "$EUID" -ne 0 ]]; then
     echo "Root required - You are dumping memory..."
     echo "Even mimikatz requires administrator"
-    exi abc
+    exit 1
 fi
 
 #Store results to cleanup later
